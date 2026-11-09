@@ -1,0 +1,277 @@
+import java.io.*;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Scanner;
+
+public class Main {
+
+    private static final String PAPKA =
+            System.getProperty("user.home") + "\\Documents\\Lab\\";
+
+    private static final String FAIL = PAPKA + "inFile1.txt";
+    private static final String KARTINKI = PAPKA + "images\\";
+
+    private static final String FOTO1 =
+            "https://i.pinimg.com/736x/ef/8f/b3/ef8fb37244ac949153931d82188e026d.jpg";
+
+    private static final String FOTO2 =
+            "https://i.pinimg.com/736x/11/ae/57/11ae57b0625e69ee5a1d3fdb13d57a91.jpg";
+
+    private static final String FOTO3 =
+            "https://i.pinimg.com/736x/9d/ab/7a/9dab7a3c82403f7943e052e49714d6d8.jpg";
+
+    private static HttpClient zagruzchik = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(10))
+            .followRedirects(HttpClient.Redirect.NORMAL)
+            .build();
+
+    private static List<Process> spisokProcessov = new ArrayList<>();
+
+    public static void main(String[] args) {
+
+        Scanner vvod = new Scanner(System.in);
+
+        try {
+            Files.createDirectories(Path.of(PAPKA));
+            Files.createDirectories(Path.of(KARTINKI));
+
+            sozdatFail();
+
+            while (true) {
+
+                System.out.println("\n===== МЕНЮ =====");
+                System.out.println("1. Скачать все картинки");
+                System.out.println("2. Скачать одну картинку");
+                System.out.println("3. Открыть скачанные картинки");
+                System.out.println("4. Показать информацию о процессах");
+                System.out.println("5. Выход");
+                System.out.print("Выберите действие: ");
+
+                int vibor;
+
+                try {
+                    vibor = Integer.parseInt(vvod.nextLine());
+                } catch (NumberFormatException e) {
+                    System.out.println("Введите число!");
+                    continue;
+                }
+
+                switch (vibor) {
+
+                    case 1:
+                        skachatVse();
+                        break;
+
+                    case 2:
+                        System.out.print("Введите номер картинки (1-3): ");
+
+                        int nomer;
+
+                        try {
+                            nomer = Integer.parseInt(vvod.nextLine());
+                        } catch (NumberFormatException e) {
+                            System.out.println("Введите число!");
+                            break;
+                        }
+
+                        if (nomer >= 1 && nomer <= 3) {
+                            skachatKartinku(nomer);
+                        } else {
+                            System.out.println("Неверный номер!");
+                        }
+                        break;
+
+                    case 3:
+                        otkrytKartinku();
+                        break;
+
+                    case 4:
+                        pokazatInfo();
+                        break;
+
+                    case 5:
+                        System.out.println("Программа завершена.");
+                        return;
+
+                    default:
+                        System.out.println("Такого пункта нет!");
+                }
+            }
+
+        } catch (Exception e) {
+            System.out.println("Ошибка: " + e.getMessage());
+        }
+    }
+
+    // Создание файла со ссылками
+    private static void sozdatFail() throws IOException {
+
+        try (BufferedWriter zapis = new BufferedWriter(
+                new FileWriter(FAIL))) {
+
+            zapis.write(FOTO1);
+            zapis.newLine();
+
+            zapis.write(FOTO2);
+            zapis.newLine();
+
+            zapis.write(FOTO3);
+            zapis.newLine();
+        }
+
+        System.out.println("Файл со ссылками создан.");
+    }
+
+    // Скачивание всех картинок
+    private static void
+
+
+    hatVse() {
+
+        try (BufferedReader chtenie = new BufferedReader(
+                new FileReader(FAIL))) {
+
+            String ssylka;
+            int nomer = 1;
+
+            while ((ssylka = chtenie.readLine()) != null) {
+
+                zagruzitFail(ssylka, nomer);
+                nomer++;
+            }
+
+        } catch (Exception e) {
+            System.out.println("Ошибка чтения файла: " + e.getMessage());
+        }
+    }
+    private static void skachatVse() {
+
+        try (BufferedReader chtenie = new BufferedReader(
+
+                new FileReader(FAIL))) {
+
+            String ssylka;
+
+            int nomer = 1;
+
+            while ((ssylka = chtenie.readLine()) != null) {
+
+                zagruzitFail(ssylka, nomer);
+
+                nomer++;
+
+            }
+
+        } catch (Exception e) {
+
+            System.out.println("Ошибка чтения файла: " + e.getMessage());
+
+        }
+
+    }
+    // Скачивание одной картинки
+    private static void skachatKartinku(int nomer) {
+
+        String[] ssylki = {FOTO1, FOTO2, FOTO3};
+
+        zagruzitFail(ssylki[nomer - 1], nomer);
+    }
+
+    // Загрузка изображения
+    private static void zagruzitFail(String ssylka, int nomer) {
+
+        try {
+
+            HttpRequest zapros = HttpRequest.newBuilder()
+                    .uri(URI.create(ssylka))
+                    .timeout(Duration.ofSeconds(30))
+                    .GET()
+                    .build();
+
+            HttpResponse<byte[]> otvet = zagruzchik.send(
+                    zapros,
+                    HttpResponse.BodyHandlers.ofByteArray()
+            );
+
+            System.out.println("\nHTTP Status: " + otvet.statusCode());
+            System.out.println("Content-Type: " +
+                    otvet.headers().firstValue("Content-Type").orElse("не указан"));
+            System.out.println("Размер: " + otvet.body().length + " байт");
+
+            if (otvet.statusCode() == 200 &&
+                    otvet.headers().firstValue("Content-Type")
+                            .orElse("").startsWith("image/")) {
+
+                Path put = Path.of(KARTINKI + "image_" + nomer + ".jpg");
+
+                Files.write(put, otvet.body());
+
+                System.out.println("Картинка сохранена: " + put);
+
+            } else {
+                System.out.println("Не удалось скачать изображение.");
+            }
+
+        } catch (Exception e) {
+            System.out.println("Ошибка загрузки: " + e.getMessage());
+        }
+    }
+
+    // Открытие скачанных картинок
+    private static void otkrytKartinku() {
+
+        for (int i = 1; i <= 3; i++) {
+
+            File kartinka = new File(
+                    KARTINKI + "image_" + i + ".jpg"
+            );
+
+            if (kartinka.exists()) {
+
+                try {
+
+                    Process process = new ProcessBuilder(
+                            "cmd.exe", "/c", "start", "", kartinka.getAbsolutePath()
+                    ).start();
+
+                    spisokProcessov.add(process);
+
+                    System.out.println("Открыта картинка " + i);
+                    System.out.println("PID процесса: " + process.pid());
+
+                } catch (Exception e) {
+                    System.out.println("Ошибка открытия: " + e.getMessage());
+                }
+
+            } else {
+                System.out.println("Картинка " + i + " не найдена.");
+            }
+        }
+    }
+
+    // Информация о процессах
+    private static void pokazatInfo() {
+
+        if (spisokProcessov.isEmpty()) {
+            System.out.println("Запущенных процессов пока нет.");
+            return;
+        }
+
+        for (Process process : spisokProcessov) {
+
+            System.out.println("\nPID: " + process.pid());
+            System.out.println("Процесс активен: " + process.isAlive());
+
+            process.info().command().ifPresent(
+                    command -> System.out.println("Команда: " + command)
+            );
+        }
+    }
+}
