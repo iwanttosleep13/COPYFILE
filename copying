@@ -1,0 +1,108 @@
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+
+// Названия файлов
+static final String FAIL1 = "text1.txt";
+static final String FAIL2 = "text2.txt";
+
+static final String KOPIA1 = "result1.txt";
+static final String KOPIA2 = "result2.txt";
+
+// Метод копирования
+static void kopirovatFail(String otkuda, String kuda) throws IOException {
+    System.out.println("Копирование файла " + otkuda);
+
+    Files.copy(Paths.get(otkuda), Paths.get(kuda),
+            StandardCopyOption.REPLACE_EXISTING);
+
+    System.out.println("Файл сохранен: " + kuda);
+}
+
+// Создание файлов
+static void sozdatFail(String nazvanie) throws IOException {
+    StringBuilder dannie = new StringBuilder();
+
+    for (int i = 0; i < 200000; i++) {
+        dannie.append("Строка номер ").append(i).append("\n");
+    }
+
+    Files.write(Paths.get(nazvanie), dannie.toString().getBytes());
+    System.out.println("Создан: " + nazvanie);
+}
+
+// Класс для работы с потоками
+static class Potok extends Thread {
+    String otkuda;
+    String kuda;
+
+    Potok(String otkuda, String kuda) {
+        this.otkuda = otkuda;
+        this.kuda = kuda;
+    }
+
+    @id86240433 (@Override)
+    public void run() {
+        try {
+            kopirovatFail(otkuda, kuda);
+        } catch (IOException oshibka) {
+            System.out.println("Ошибка: " + oshibka);
+        }
+    }
+}
+
+void main() throws InterruptedException {
+
+    // Подготавливаем файлы
+    try {
+        sozdatFail(FAIL1);
+        sozdatFail(FAIL2);
+    } catch (IOException oshibka) {
+        System.out.println("Не удалось создать файлы: " + oshibka);
+        return;
+    }
+
+    long nachalo;
+    long vremyaPosled;
+    long vremyaParallel;
+
+    // Сначала выполняем параллельное копирование
+    System.out.println("\nПАРАЛЛЕЛЬНОЕ КОПИРОВАНИЕ");
+
+    nachalo = System.nanoTime();
+
+    Potok potok1 = new Potok(FAIL1, KOPIA1);
+    Potok potok2 = new Potok(FAIL2, KOPIA2);
+
+    potok2.start();
+    potok1.start();
+
+    potok1.join();
+    potok2.join();
+
+    vremyaParallel = (System.nanoTime() - nachalo) / 1000;
+
+    // Теперь выполняем последовательное копирование
+    System.out.println("\nПОСЛЕДОВАТЕЛЬНОЕ КОПИРОВАНИЕ");
+
+    nachalo = System.nanoTime();
+
+    try {
+        kopirovatFail(FAIL2, KOPIA2);
+        kopirovatFail(FAIL1, KOPIA1);
+    } catch (IOException oshibka) {
+        System.out.println("Ошибка копирования: " + oshibka);
+    }
+
+    vremyaPosled = (System.nanoTime() - nachalo) / 1000;
+
+    // Сравнение времени
+    System.out.println("\nИТОГ РАБОТЫ");
+
+    System.out.println("Время параллельного копирования: "
+            + vremyaParallel + " мкс");
+
+    System.out.println("Время последовательного копирования: "
+            + vremyaPosled + " мкс");
+}
