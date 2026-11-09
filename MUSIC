@@ -1,0 +1,175 @@
+import java.io.*;
+import java.net.URI;
+import java.nio.channels.Channels;
+import java.nio.channels.ReadableByteChannel;
+import java.util.ArrayList;
+import java.util.InputMismatchException;
+import java.util.List;
+import java.util.Scanner;
+
+public class Main {
+
+    private static final String PAPKA = System.getProperty("user.home") + "\\Documents\\MusicLab\\";
+    private static final String FAIL = PAPKA + "ssylki.txt";
+    private static final String MUZYKA = PAPKA + "audio\\";
+
+    private static final String SSYLKA1 = "https://kaino.dev/api/library/music/hip-hop-07/download?format=mp3";
+    private static final String SSYLKA2 = "https://kaino.dev/api/library/music/hip-hop-09/download?format=mp3";
+    private static final String SSYLKA3 = "https://kaino.dev/api/library/music/hip-hop-01/download?format=mp3";
+    private static final String SSYLKA4 = "https://kaino.dev/api/library/music/hip-hop-03/download?format=mp3";
+
+    static Process proigryvatel = null;
+    static String pesnya = "";
+    static List<Long> spisokPID = new ArrayList<>();
+
+    public static void main(String[] args) {
+
+        System.out.println("Выберите действие:");
+        System.out.println("1 - Скачать всю музыку");
+        System.out.println("2 - Скачать Hip Hop 07");
+        System.out.println("3 - Скачать Hip Hop 09");
+        System.out.println("4 - Скачать Hip Hop 01");
+        System.out.println("5 - Скачать Hip Hop 03");
+
+        System.out.println("Папка сохранения: " + MUZYKA);
+        System.out.print("Ваш выбор: ");
+
+        try {
+            Scanner vvod = new Scanner(System.in);
+            int nomer = vvod.nextInt();
+
+            new File(MUZYKA).mkdirs();
+            sozdatFail();
+
+            switch (nomer) {
+                case 1:
+                    skachatVse(FAIL);
+                    break;
+                case 2:
+                    zapustitPesnyu(SSYLKA1, "hiphop07.mp3", "Hip Hop 07");
+                    break;
+                case 3:
+                    zapustitPesnyu(SSYLKA2, "hiphop09.mp3", "Hip Hop 09");
+                    break;
+                case 4:
+                    zapustitPesnyu(SSYLKA3, "hiphop01.mp3", "Hip Hop 01");
+                    break;
+                case 5:
+                    zapustitPesnyu(SSYLKA4, "hiphop03.mp3", "Hip Hop 03");
+                    break;
+                default:
+                    System.out.println("Неверный выбор");
+            }
+
+        } catch (InputMismatchException oshibka) {
+            System.out.println("Введите число от 1 до 5");
+        }
+
+        pokazatInfo();
+    }
+
+    static void sozdatFail() {
+        File fail = new File(FAIL);
+        fail.getParentFile().mkdirs();
+
+        try (PrintWriter zapis = new PrintWriter(new FileWriter(fail))) {
+            zapis.println(SSYLKA1);
+            zapis.println(SSYLKA2);
+            zapis.println(SSYLKA3);
+            zapis.println(SSYLKA4);
+
+            System.out.println("Файл со ссылками создан");
+
+        } catch (IOException oshibka) {
+            System.out.println("Ошибка создания файла: " + oshibka.getMessage());
+        }
+    }
+
+    static void skachatVse(String put) {
+        System.out.println("\nНачинаем скачивание музыки");
+
+        int kolichestvo = 0;
+
+        try (BufferedReader chitatel = new BufferedReader(new FileReader(put))) {
+            String ssylka;
+
+            while ((ssylka = chitatel.readLine()) != null) {
+                ssylka = ssylka.trim();
+
+                if (ssylka.isEmpty()) {
+                    continue;
+                }
+
+                try {
+                    String imya = "music_" + (kolichestvo + 1) + ".mp3";
+                    skachatFail(ssylka, MUZYKA + imya);
+
+                    System.out.println("Скачан файл: " + imya);
+                    kolichestvo++;
+
+                } catch (IOException | IllegalArgumentException oshibka) {
+                    System.out.println("Ошибка загрузки: " + oshibka.getMessage());
+                }
+            }
+
+        } catch (IOException oshibka) {
+            System.out.println("Ошибка чтения файла: " + oshibka.getMessage());
+
+
+        }
+
+        System.out.println("Всего скачано песен: " + kolichestvo);
+    }
+
+    static void zapustitPesnyu(String ssylka, String imyaFaila, String nazvanie) {
+        String put = MUZYKA + imyaFaila;
+
+        try {
+            System.out.println("\nСкачиваем: " + nazvanie);
+
+            skachatFail(ssylka, put);
+
+            System.out.println("Файл сохранен: " + put);
+            System.out.println("Размер файла: " + new File(put).length() + " байт");
+
+            ProcessBuilder zapusk = new ProcessBuilder(
+                    "cmd.exe", "/c", "start", "/wait", "",
+                    new File(put).getAbsolutePath()
+            );
+
+            proigryvatel = zapusk.start();
+            pesnya = nazvanie;
+            spisokPID.add(proigryvatel.pid());
+
+        } catch (IOException | IllegalArgumentException oshibka) {
+            System.out.println("Ошибка: " + oshibka.getMessage());
+        }
+    }
+
+    static void skachatFail(String ssylka, String put) throws IOException {
+        try (ReadableByteChannel kanal = Channels.newChannel(
+                URI.create(ssylka).toURL().openStream());
+             FileOutputStream zapis = new FileOutputStream(put)) {
+
+            zapis.getChannel().transferFrom(kanal, 0, Long.MAX_VALUE);
+        }
+    }
+
+    static void pokazatInfo() {
+        System.out.println("\nИНФОРМАЦИЯ О ПРОЦЕССАХ");
+
+        if (proigryvatel != null) {
+            System.out.println("Название песни: " + pesnya);
+            System.out.println("PID плеера: " + proigryvatel.pid());
+            System.out.println("Активен: " + proigryvatel.isAlive());
+        }
+
+        ProcessHandle tekushiy = ProcessHandle.current();
+
+        System.out.println("PID программы: " + tekushiy.pid());
+        System.out.println("Программа активна: " + tekushiy.isAlive());
+        System.out.println("Дочерние процессы: " + tekushiy.children().count());
+        System.out.println("Информация: " + tekushiy.info());
+        System.out.println("Список PID: " + spisokPID);
+    }
+}
